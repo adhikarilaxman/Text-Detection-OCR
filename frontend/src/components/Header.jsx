@@ -60,7 +60,7 @@ export default function Header({ isDark, onToggleTheme }) {
                     <motion.a
                         whileHover={{ scale: 1.08 }}
                         whileTap={{ scale: 0.94 }}
-                        href="https://github.com/adhikarilaxman"
+                        href="https://github.com/adhikarilaxman/Text-Detection-OCR.git"
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label="Open GitHub profile"
