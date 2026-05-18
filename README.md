@@ -189,6 +189,21 @@ npm run build
 
 ## Feature Upgrades
 
+## Security & API Keys
+
+- Do NOT commit your API keys to the repository or share them publicly.
+- If you accidentally exposed a key (for example in `.env`), revoke it immediately and generate a new one.
+- Store keys in environment variables or a secrets manager. For local development, use a `.env` file that is listed in `.gitignore`.
+
+Example local settings (do not commit):
+
+```env
+OPENROUTER_API_KEY=sk-your-openrouter-key-here
+OPENAI_API_KEY=sk-your-openai-key-here
+```
+
+If you pasted a key into a public chat or committed it, rotate the key now.
+
 Planned or recommended improvements:
 
 - Add user authentication for saved OCR history.

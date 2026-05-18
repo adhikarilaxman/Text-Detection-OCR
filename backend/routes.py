@@ -210,12 +210,55 @@ def handwritten_ocr_endpoint():
             logger.warning("Failed to decode the provided image.")
             return jsonify({'error': 'Could not decode image.'}), 400
 
-        # Perform handwritten OCR
+        # Prefer AI-based handwritten OCR if an API key is configured, otherwise use local EasyOCR
         logger.info(f"Processing handwritten image upload: {file.filename}")
+
+        if os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY'):
+            # Save to temp file and call AI vision extractor
+            temp_path = _save_upload_to_temp(file)
+            try:
+                logger.info("Attempting AI-based handwritten extraction via OpenAI/OpenRouter")
+                ai_result = extract_handwritten_text_with_openai(temp_path)
+                if ai_result and ai_result.get('text'):
+                    raw_text = ai_result.get('text', '')
+                    # Try to correct using the AI correction flow
+                    corrected = None
+                    try:
+                        corrected = correct_handwritten_text(raw_text)
+                    except Exception:
+                        corrected = None
+
+                    corrected_text = corrected.get('corrected_text') if corrected and isinstance(corrected, dict) else raw_text
+
+                    return jsonify({
+                        'success': True,
+                        'text': corrected_text,
+                        'full_text': corrected_text,
+                        'raw_text': raw_text,
+                        'confidence': ai_result.get('confidence', 0.85),
+                        'results': [],
+                        'processed_image': None,
+                        'heatmap_image': None,
+                        'total_regions': 0,
+                        'image_type': 'handwritten',
+                        'preprocessing_steps': ['ai_vision'],
+                        'mode_used': 'ai-handwritten-ocr',
+                        'ocr_engine': 'openai_vision',
+                        'template': {}
+                    }), 200
+
+                logger.info("AI handwritten extraction returned no result; falling back to local EasyOCR")
+            finally:
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    logger.warning("Could not remove temporary upload: %s", temp_path)
+
+        # Local fallback using EasyOCR
         response_data = _build_local_handwritten_response(
             image,
             image_type='handwritten',
-            mode_used='handwritten-ocr-endpoint'
+            mode_used='handwritten-ocr-endpoint-local'
         )
         return jsonify(response_data), 200
 

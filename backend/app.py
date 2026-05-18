@@ -1,16 +1,35 @@
 import sys
 import os
 import io
+
+# ── Load .env FIRST so every module (including ai_formatter) sees the API key ──
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 import logging
 from flask import Flask
 from flask_cors import CORS
 
 # Force UTF-8 encoding for standard output to prevent crashes
 # when libraries like EasyOCR print unicode progress bars on Windows
-if sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-if sys.stderr.encoding.lower() != 'utf-8':
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+try:
+    out_enc = (sys.stdout.encoding or '').lower()
+except Exception:
+    out_enc = ''
+try:
+    err_enc = (sys.stderr.encoding or '').lower()
+except Exception:
+    err_enc = ''
+
+if out_enc != 'utf-8':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if err_enc != 'utf-8':
+    try:
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 # Import our modular routes
 from routes import api
