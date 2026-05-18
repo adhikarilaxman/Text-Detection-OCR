@@ -82,6 +82,7 @@ OCR/
     ai_formatter.py
     prescription_parser.py
     requirements.txt
+    requirements-local.txt
   frontend/
     public/
       index.html
@@ -106,7 +107,7 @@ Install Python dependencies:
 cd backend
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 ```
 
 Install Tesseract OCR on your system and make sure it is available in PATH. On Windows, the backend also checks common Tesseract installation paths automatically.
