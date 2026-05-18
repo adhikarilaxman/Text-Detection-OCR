@@ -3,3 +3,27 @@
  * Running on http://127.0.0.1:5000
 2026-05-18 15:40:49,715 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
 2026-05-18 15:40:54,989 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:40:54] "GET /api/health HTTP/1.1" 200 -
+2026-05-18 15:41:09,936 - routes - INFO - Processing handwritten OCR with OpenAI Vision for: ocr-ai-test.png
+2026-05-18 15:41:11,789 - httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-18 15:41:12,315 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:41:12] "POST /api/ocr/bytez/handwritten HTTP/1.1" 200 -
+2026-05-18 15:42:46,963 - routes - INFO - Processing image upload: sample-image.jpg
+2026-05-18 15:42:47,028 - utils - INFO - Applying preprocessing pipeline for image type: normal
+2026-05-18 15:42:48,430 - routes - INFO - Applied learned corrections to OCR text
+2026-05-18 15:42:48,599 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:42:48] "POST /api/ocr HTTP/1.1" 200 -
+2026-05-18 15:42:58,092 - routes - INFO - Processing handwritten OCR with OpenAI Vision for: sample-image.jpg
+2026-05-18 15:43:01,023 - httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-18 15:43:01,790 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:43:01] "POST /api/ocr/bytez/handwritten HTTP/1.1" 200 -
+2026-05-18 15:44:14,485 - routes - INFO - Processing handwritten OCR with OpenAI Vision for: ID CARD.jpg
+2026-05-18 15:44:30,592 - httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-18 15:44:31,656 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:44:31] "POST /api/ocr/bytez/handwritten HTTP/1.1" 200 -
+2026-05-18 15:44:42,868 - routes - INFO - Processing image upload: ID CARD.jpg
+2026-05-18 15:44:43,025 - utils - INFO - Applying preprocessing pipeline for image type: blurry
+2026-05-18 15:44:47,866 - routes - INFO - Applied learned corrections to OCR text
+2026-05-18 15:44:49,295 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 15:44:49] "POST /api/ocr HTTP/1.1" 200 -
+2026-05-18 16:19:36,001 - routes - INFO - Processing image upload: 5b6a4434-2c46-42e6-9c9d-26264a40b164_payment_confirmation_202408224-060432.png
+2026-05-18 16:19:36,167 - utils - INFO - Applying preprocessing pipeline for image type: normal
+2026-05-18 16:19:36,940 - routes - INFO - Applied learned corrections to OCR text
+2026-05-18 16:19:37,027 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 16:19:37] "POST /api/ocr HTTP/1.1" 200 -
+2026-05-18 16:19:54,718 - routes - INFO - Processing handwritten OCR with OpenAI Vision for: ID CARD.jpg
+2026-05-18 16:20:25,079 - httpx - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-18 16:20:25,731 - werkzeug - INFO - 127.0.0.1 - - [18/May/2026 16:20:25] "POST /api/ocr/bytez/handwritten HTTP/1.1" 200 -
