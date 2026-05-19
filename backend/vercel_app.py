@@ -12,15 +12,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 VISION_MODEL = os.getenv("OCR_VISION_MODEL", "openai/gpt-4o")
 TEXT_MODEL = os.getenv("OCR_TEXT_MODEL", "openai/gpt-4o-mini")
 
-client = (
-    openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
-    if OPENAI_API_KEY
-    else None
-)
+client = None
+if OPENAI_API_KEY:
+    try:
+        # Prefer OpenRouter base if the key looks like an OpenRouter key or env var used explicitly
+        if os.getenv("OPENROUTER_API_KEY") or str(OPENAI_API_KEY).startswith("sk-or-"):
+            logger.info("Configuring OpenAI client for OpenRouter at %s", OPENROUTER_BASE)
+            client = openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
+        else:
+            logger.info("Configuring OpenAI client for official OpenAI endpoint")
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    except Exception as e:
+        logger.exception("Failed to initialize OpenAI/OpenRouter client: %s", e)
+        client = None
 
 app = Flask(__name__)
 CORS(app)
@@ -56,45 +64,58 @@ def _get_upload():
 
 def _extract_text_with_ai(image_bytes, prompt):
     if not client:
-        return None, "AI OCR is not configured. Set OPENROUTER_API_KEY in Vercel environment variables."
+        return None, (
+            "AI OCR is not configured. Set either OPENAI_API_KEY or OPENROUTER_API_KEY in your Vercel environment "
+            "and redeploy. For OpenRouter keys the prefix often starts with 'sk-or-'."
+        )
 
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    response = client.chat.completions.create(
-        model=VISION_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a precise OCR engine. Extract the visible text from the image. "
-                    "Preserve line breaks and wording. Return only valid JSON."
-                ),
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_b64}",
-                        },
-                    },
-                ],
-            },
-        ],
-        temperature=0,
-        max_tokens=2500,
-    )
-
-    content = _strip_json_fence(response.choices[0].message.content)
     try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        data = {"text": content, "confidence": 0.85}
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        response = client.chat.completions.create(
+            model=VISION_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise OCR engine. Extract the visible text from the image. "
+                        "Preserve line breaks and wording. Return only valid JSON."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_b64}",
+                            },
+                        },
+                    ],
+                },
+            ],
+            temperature=0,
+            max_tokens=2500,
+        )
 
-    text = data.get("text") or data.get("raw_text") or ""
-    confidence = data.get("confidence", 0.9)
-    return {"text": text, "confidence": confidence, "model": VISION_MODEL}, None
+        content = _strip_json_fence(response.choices[0].message.content)
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            data = {"text": content, "confidence": 0.85}
+
+        text = data.get("text") or data.get("raw_text") or ""
+        confidence = data.get("confidence", 0.9)
+        return {"text": text, "confidence": confidence, "model": VISION_MODEL}, None
+
+    except Exception as e:
+        logger.exception("AI OCR request failed: %s", e)
+        # Return an actionable message rather than a generic network error
+        return None, (
+            "AI OCR request failed due to a network or API error. "
+            "Ensure your API key is valid, the Vercel environment variable is set (OPENAI_API_KEY or OPENROUTER_API_KEY), "
+            "and the provider is reachable. Check function logs for details."
+        )
 
 
 def _text_response(result, mode_used):
