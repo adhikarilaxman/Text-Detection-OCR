@@ -221,7 +221,8 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
                     ]
                 }
             ],
-            max_tokens=2000
+            temperature=0.0,
+            max_tokens=3000
         )
 
         content = response.choices[0].message.content.strip()
@@ -321,7 +322,8 @@ def extract_medical_prescription_with_openai(image_path: str) -> Optional[dict]:
                     ]
                 }
             ],
-            max_tokens=2500
+            temperature=0.0,
+            max_tokens=3500
         )
 
         content = response.choices[0].message.content.strip()

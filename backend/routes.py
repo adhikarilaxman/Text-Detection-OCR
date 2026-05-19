@@ -74,6 +74,19 @@ def _save_upload_to_temp(file):
     file.save(temp_path)
     return temp_path
 
+
+def _save_bytes_to_temp(image_bytes, filename=None):
+    """Save raw image bytes to a temporary file and return its path."""
+    suffix = os.path.splitext(filename or '')[1].lower()
+    if suffix not in {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'}:
+        suffix = '.img'
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    temp_path = temp_file.name
+    temp_file.write(image_bytes)
+    temp_file.close()
+    return temp_path
+
 @api.route('/health', methods=['GET'])
 def health_check():
     """Basic health check endpoint to verify backend status and Tesseract availability."""
@@ -215,7 +228,7 @@ def handwritten_ocr_endpoint():
 
         if os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY'):
             # Save to temp file and call AI vision extractor
-            temp_path = _save_upload_to_temp(file)
+            temp_path = _save_bytes_to_temp(image_bytes, file.filename)
             try:
                 logger.info("Attempting AI-based handwritten extraction via OpenAI/OpenRouter")
                 ai_result = extract_handwritten_text_with_openai(temp_path)
