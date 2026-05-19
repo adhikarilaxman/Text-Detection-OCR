@@ -13,15 +13,25 @@ logger = logging.getLogger(__name__)
 
 # ── OpenAI client (via OpenRouter) ─────────────────────────────────────────────
 _OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-_OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+_OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 _TEXT_MODEL    = "openai/gpt-4o-mini"  # For text correction
 _VISION_MODEL  = "openai/gpt-4o"       # For image OCR (vision capabilities)
 
 if _OPENAI_API_KEY:
-    client = openai.OpenAI(
-        base_url=_OPENROUTER_BASE,
-        api_key=_OPENAI_API_KEY
-    )
+    try:
+        # If the key appears to be an OpenRouter key (prefix commonly 'sk-or-')
+        # or OPENROUTER_API_KEY env var is explicitly used, configure the
+        # OpenAI client to use the OpenRouter base URL.
+        if os.getenv("OPENROUTER_API_KEY") or str(_OPENAI_API_KEY).startswith("sk-or-"):
+            logger.info("Configuring OpenAI client to use OpenRouter at %s", _OPENROUTER_BASE)
+            client = openai.OpenAI(base_url=_OPENROUTER_BASE, api_key=_OPENAI_API_KEY)
+        else:
+            # Use the official OpenAI endpoint when a normal OpenAI key is present
+            logger.info("Configuring OpenAI client to use official OpenAI endpoint")
+            client = openai.OpenAI(api_key=_OPENAI_API_KEY)
+    except Exception as e:
+        logger.exception("Failed to initialize OpenAI/OpenRouter client: %s", e)
+        client = None
 else:
     logger.warning("OpenAI API key not configured. Set OPENAI_API_KEY or OPENROUTER_API_KEY environment variable.")
     client = None

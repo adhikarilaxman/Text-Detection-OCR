@@ -96,6 +96,35 @@ def health_check():
         'tesseract_available': tesseract_available
     }), 200
 
+
+@api.route('/admin/set_api_key', methods=['POST'])
+def set_api_key():
+    """Admin helper to persist an OpenAI/OpenRouter API key to backend/.env
+    and reload the ai_formatter module so changes take effect without restart.
+    This is intended for local development only. Do NOT expose in production.
+    """
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        key = (payload.get('key') or '').strip()
+        if not key:
+            return jsonify({'error': 'No API key provided.'}), 400
+
+        env_path = os.path.join(os.path.dirname(__file__), '.env')
+        # Write OPENAI_API_KEY to backend/.env
+        with open(env_path, 'w', encoding='utf-8') as fh:
+            fh.write(f'OPENAI_API_KEY={key}\n')
+
+        # Also set in current process env and reload ai_formatter
+        os.environ['OPENAI_API_KEY'] = key
+        import importlib
+        import ai_formatter as _ai_formatter
+        importlib.reload(_ai_formatter)
+
+        return jsonify({'success': True, 'message': 'API key saved and AI module reloaded.'}), 200
+    except Exception as e:
+        logger.exception('Failed to save API key: %s', e)
+        return jsonify({'error': 'Failed to save API key.'}), 500
+
 @api.route('/ocr', methods=['POST'])
 def ocr_endpoint():
     """
