@@ -20,8 +20,12 @@ TEXT_MODEL = os.getenv("OCR_TEXT_MODEL", "openai/gpt-4o-mini")
 client = None
 if OPENAI_API_KEY:
     try:
-        logger.info("Initializing OpenAI client with OpenRouter base URL")
-        client = openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
+        if os.getenv("OPENROUTER_API_KEY") or str(OPENAI_API_KEY).startswith("sk-or-"):
+            logger.info("Configuring OpenAI client to use OpenRouter at %s", OPENROUTER_BASE)
+            client = openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
+        else:
+            logger.info("Configuring OpenAI client to use official OpenAI endpoint")
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
         logger.info("OpenAI client initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize OpenAI client: {e}")
