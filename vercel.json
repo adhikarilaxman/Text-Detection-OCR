@@ -27,8 +27,9 @@
       "dest": "/frontend/build/$1"
     }
   ],
-  "env": {
-    "OPENROUTER_API_KEY": "@openrouter_api_key",
-    "OPENAI_API_KEY": "@openai_api_key"
+  "functions": {
+    "backend/vercel_app.py": {
+      "maxDuration": 60
+    }
   }
 }

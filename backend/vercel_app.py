@@ -92,7 +92,7 @@ def _extract_text_with_ai(image_bytes, prompt):
             },
         ],
         temperature=0,
-        max_tokens=2500,
+        max_tokens=1200,
     )
 
     content = _strip_json_fence(response.choices[0].message.content)
@@ -216,7 +216,7 @@ def clean_text():
             },
         ],
         temperature=0.1,
-        max_tokens=2000,
+        max_tokens=1200,
     )
     content = _strip_json_fence(response.choices[0].message.content)
     try:

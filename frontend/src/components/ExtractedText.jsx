@@ -30,7 +30,7 @@ export default function ExtractedText({ text, confidence, onClear, addToast }) {
 
     const charCount = text ? text.length : 0;
 
-    const confidencePct = confidence != null ? Math.round(confidence) : null;
+    const confidencePct = confidence != null ? Math.round(confidence <= 1 ? confidence * 100 : confidence) : null;
 
 
 

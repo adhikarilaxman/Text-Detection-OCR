@@ -69,7 +69,7 @@ def parse_prescription_with_ai(raw_text: str) -> Optional[dict]:
             model=_MODEL_ID,
             messages=messages,
             temperature=0.1,
-            max_tokens=1500
+            max_tokens=1000
         )
 
         content = response.choices[0].message.content.strip()

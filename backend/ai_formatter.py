@@ -86,7 +86,7 @@ def format_text_with_ai(raw_text: str) -> Optional[dict]:
             model=_TEXT_MODEL, 
             messages=messages,
             temperature=0.1,
-            max_tokens=2000
+            max_tokens=1200
         )
 
         content = response.choices[0].message.content.strip()
@@ -232,7 +232,7 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
                 }
             ],
             temperature=0.0,
-            max_tokens=3000
+            max_tokens=1200
         )
 
         content = response.choices[0].message.content.strip()
@@ -333,7 +333,7 @@ def extract_medical_prescription_with_openai(image_path: str) -> Optional[dict]:
                 }
             ],
             temperature=0.0,
-            max_tokens=3500
+            max_tokens=1200
         )
 
         content = response.choices[0].message.content.strip()
@@ -408,7 +408,7 @@ def correct_handwritten_text(raw_text: str) -> Optional[dict]:
                 {"role": "user", "content": user_msg}
             ],
             temperature=0.2,
-            max_tokens=2000
+            max_tokens=1200
         )
 
         content = response.choices[0].message.content.strip()

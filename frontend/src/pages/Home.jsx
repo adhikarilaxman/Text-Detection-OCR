@@ -4,8 +4,7 @@ import { Sparkles, ArrowLeft, Loader2 } from 'lucide-react';
 import UploadBox from '../components/UploadBox';
 import ImagePreview from '../components/ImagePreview';
 import ExtractedText from '../components/ExtractedText';
-import { performOCR, performPrescriptionOCR, extractHandwrittenBytez } from '../services/api';
-
+import { performOCR, performPrescriptionOCR, performHandwrittenOCR } from '../services/api';
 export default function Home({ addToast }) {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
@@ -44,7 +43,7 @@ export default function Home({ addToast }) {
             if (ocrMode === 'prescription') {
                 data = await performPrescriptionOCR(file);
             } else if (ocrMode === 'handwritten') {
-                data = await extractHandwrittenBytez(file);
+                data = await performHandwrittenOCR(file);
             } else {
                 data = await performOCR(file);
             }
