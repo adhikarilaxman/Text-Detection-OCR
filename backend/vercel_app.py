@@ -12,15 +12,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
 VISION_MODEL = os.getenv("OCR_VISION_MODEL", "openai/gpt-4o")
 TEXT_MODEL = os.getenv("OCR_TEXT_MODEL", "openai/gpt-4o-mini")
 
-client = (
-    openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
-    if OPENAI_API_KEY
-    else None
-)
+# Initialize client with better error handling
+client = None
+if OPENAI_API_KEY:
+    try:
+        logger.info("Initializing OpenAI client with OpenRouter base URL")
+        client = openai.OpenAI(base_url=OPENROUTER_BASE, api_key=OPENAI_API_KEY)
+        logger.info("OpenAI client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {e}")
+        client = None
+else:
+    logger.warning("OPENAI_API_KEY environment variable not set. AI OCR will be unavailable.")
 
 app = Flask(__name__)
 CORS(app)
@@ -56,7 +63,9 @@ def _get_upload():
 
 def _extract_text_with_ai(image_bytes, prompt):
     if not client:
-        return None, "AI OCR is not configured. Set OPENROUTER_API_KEY in Vercel environment variables."
+        error_msg = "AI OCR not available: OPENAI_API_KEY is not configured in Vercel environment variables."
+        logger.error(error_msg)
+        return None, error_msg
 
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = client.chat.completions.create(
@@ -122,11 +131,15 @@ def _text_response(result, mode_used):
 
 @app.route("/api/health", methods=["GET"])
 def health():
+    api_key_set = bool(OPENAI_API_KEY)
+    client_initialized = bool(client)
+    logger.info(f"Health check: API key set={api_key_set}, client initialized={client_initialized}")
     return jsonify(
         {
             "status": "healthy",
             "tesseract_available": False,
-            "ai_vision_available": bool(client),
+            "ai_vision_available": client_initialized,
+            "api_key_configured": api_key_set,
             "runtime": "vercel_serverless",
         }
     )
