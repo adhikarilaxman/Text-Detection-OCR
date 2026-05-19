@@ -2,8 +2,8 @@ Flask>=3.0.0
 flask-cors>=4.0.0
 openai>=1.0.0
 python-dotenv>=1.0.0
-easyocr>=1.7.0
-opencv-python>=4.8.0
-pytesseract>=0.3.10
-Pillow>=10.2.0
-numpy>=1.24.0
+
+# Note: heavy native libraries required for local OCR (easyocr/opencv/pytesseract)
+# are intentionally omitted here to keep the Vercel serverless build small.
+# For local development, use `backend/requirements-local.txt` which lists
+# those heavier dependencies.

@@ -78,17 +78,34 @@ def perform_ocr(image):
     else:
         pil_image = image
 
-    # Basic layout analysis config
-    config = '--psm 6 --oem 3'
-    
-    try:
-        data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=config)
-    except Exception as e:
-        # Fallback to simple string extraction if data extraction fails
-        logger.warning(f"Detailed data extraction failed, falling back to basic string: {e}")
-        text = pytesseract.image_to_string(pil_image, config=config)
-        if text.strip():
-            return [{'text': text.strip(), 'bbox': {'x': 0, 'y': 0, 'width': 0, 'height': 0}, 'confidence': 100}]
+    # Try a sequence of layout analysis configs to improve extraction robustness
+    configs = [
+        '--psm 6 --oem 3',  # Assume a single uniform block of text
+        '--psm 3 --oem 3',  # Fully automatic page segmentation
+        '--psm 11 --oem 3'  # Sparse text. Good for single words/lines
+    ]
+
+    data = None
+    last_exception = None
+    for config in configs:
+        try:
+            data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=config)
+            # If we got some text entries, accept this result
+            if data and any(t.strip() for t in data.get('text', [])):
+                break
+        except Exception as e:
+            last_exception = e
+            logger.debug("Tesseract data extraction failed for config %s: %s", config, e)
+
+    if data is None:
+        # Fallback to simple string extraction if data extraction fails entirely
+        logger.warning(f"Detailed data extraction failed for all configs, falling back to basic string: {last_exception}")
+        try:
+            text = pytesseract.image_to_string(pil_image, config=configs[0])
+            if text.strip():
+                return [{'text': text.strip(), 'bbox': {'x': 0, 'y': 0, 'width': 0, 'height': 0}, 'confidence': 100}]
+        except Exception as e:
+            logger.warning("Fallback image_to_string also failed: %s", e)
         return []
 
     results = []
@@ -243,6 +260,44 @@ def preprocess_handwritten(image):
     return binary
 
 
+def preprocess_printed(image):
+    """
+    Preprocessing pipeline for printed text (scanned documents):
+    - Convert to grayscale
+    - Upscale small images to improve DPI
+    - Apply CLAHE for contrast
+    - Apply Otsu thresholding for clean binary text
+    """
+    # Convert to grayscale
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+
+    h, w = gray.shape[:2]
+    # Upscale small images to target ~1800px width for better OCR
+    target_w = 1800
+    if max(w, h) < target_w:
+        scale = target_w / max(w, h)
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+    # CLAHE contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
+    # Noise reduction
+    denoised = cv2.GaussianBlur(enhanced, (3, 3), 0)
+
+    # Otsu thresholding
+    _, binary = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Convert back to BGR if original was color
+    if len(image.shape) == 3:
+        binary = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+
+    return binary
+
+
 
 
 
@@ -309,8 +364,9 @@ def apply_preprocessing_pipeline(image, mode='auto'):
         applied_steps = ['grayscale', 'clahe', 'median_blur', 'adaptive_threshold']
     
     else:  # normal
-        processed = image.copy()
-        applied_steps = ['none']
+        # Apply printed-document preprocessing to improve OCR accuracy
+        processed = preprocess_printed(image)
+        applied_steps = ['grayscale', 'resize', 'clahe', 'gaussian_blur', 'otsu_threshold']
     
     return processed, image_type, applied_steps
 

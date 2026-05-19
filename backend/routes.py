@@ -392,20 +392,37 @@ def clean_text_endpoint():
 
         ai_result = format_text_with_ai(raw_text)
         if ai_result is None:
-            # AI not configured - return clear error instead of fallback
-            return jsonify({
-                'error': 'AI processing failed. Please set OPENAI_API_KEY in your environment.'
-            }), 503
-            
+            # AI not configured or failed - use a local formatter as fallback
+            try:
+                from ai_formatter import format_text_locally
+                local_result = format_text_locally(raw_text)
+                return jsonify({
+                    'cleaned_text': local_result.get('cleaned_text', raw_text),
+                    'summary': local_result.get('summary', ['AI unavailable, returned locally cleaned text.']),
+                    'used_ai': False
+                }), 200
+            except Exception:
+                return jsonify({
+                    'cleaned_text': raw_text,
+                    'summary': ['AI unavailable, returned raw text.'],
+                    'used_ai': False
+                }), 200
+
         cleaned_text = ai_result.get('cleaned_text', '').strip()
         summary = ai_result.get('summary', [])
-        
+
         if not cleaned_text:
-            return jsonify({'error': 'AI processing failed: empty response.'}), 500
+            # If AI returned nothing, still return raw text
+            return jsonify({
+                'cleaned_text': raw_text,
+                'summary': ['AI returned empty response, raw text returned.'],
+                'used_ai': False
+            }), 200
 
         return jsonify({
             'cleaned_text': cleaned_text,
-            'summary': summary
+            'summary': summary,
+            'used_ai': True
         }), 200
         
     except Exception:

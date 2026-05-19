@@ -104,6 +104,62 @@ def format_text_with_ai(raw_text: str) -> Optional[dict]:
         return None
 
 
+def format_text_locally(raw_text: str) -> dict:
+    """
+    Lightweight local fallback formatter for OCR text when AI is unavailable.
+    Attempts to fix common OCR spacing issues, punctuation, and split
+    label:value pairs onto separate lines for readability.
+
+    Returns a dict with keys: cleaned_text (str) and summary (list).
+    """
+    import re
+
+    if not raw_text:
+        return {"cleaned_text": "", "summary": ["No text provided."]}
+
+    text = raw_text.strip()
+
+    # Normalize whitespace
+    text = text.replace('\r', '\n')
+    text = re.sub(r"[\t\u00A0]+", ' ', text)
+    text = re.sub(r" +", ' ', text)
+
+    # Replace accidental pipe/vertical bars often seen in OCR with a space
+    text = text.replace('|', ' ')
+
+    # Ensure punctuation spacing
+    text = re.sub(r"\s+([,:.])", r"\1", text)
+    text = re.sub(r":\s*", ': ', text)
+
+    # Insert line breaks before common labels to improve readability
+    labels = [
+        'PRN', 'Degree', 'Branch', 'Date of Birth', 'Blood Group', 'Tel', 'Phone', 'Date', 'Name'
+    ]
+    for lab in labels:
+        # match label possibly followed/preceded by non-word characters
+        pattern = re.compile(r"\s*" + re.escape(lab) + r"\s*[:\-–—]*\s*", flags=re.IGNORECASE)
+        text = pattern.sub('\n' + lab + ': ', text)
+
+    # Split into lines and tidy each line
+    lines = [ln.strip() for ln in re.split(r"[\n]+", text) if ln.strip()]
+    cleaned_lines = []
+    for ln in lines:
+        # Fix common OCR artifact '0' vs 'O' near year-like patterns
+        ln = re.sub(r'(?<=\D)0(?=\d{2,4})', '0', ln)
+        cleaned_lines.append(ln)
+
+    cleaned_text = '\n'.join(cleaned_lines).strip()
+
+    # Very short summary placeholders (could be extended)
+    summary = []
+    if len(cleaned_text) > 200:
+        summary.append('Long OCR text cleaned locally.')
+    else:
+        summary.append('OCR text cleaned locally.')
+
+    return {"cleaned_text": cleaned_text, "summary": summary}
+
+
 # ── Handwritten & Medical Prescription OCR with OpenAI Vision ──────────────
 def _encode_image_to_base64(image_path: str) -> str:
     """Encode an image file to base64 string."""
