@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import easyocr
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,6 +12,13 @@ def get_reader():
     """Singleton getter for the EasyOCR reader."""
     global reader
     if reader is None:
+        try:
+            import easyocr
+        except ImportError:
+            raise ImportError(
+                "EasyOCR is not installed. To use local handwritten OCR, "
+                "please install easyocr or configure an OpenAI/OpenRouter API key for AI-based OCR."
+            )
         logger.info("Initializing EasyOCR reader (CPU mode)...")
         # Use CPU for better compatibility
         reader = easyocr.Reader(['en'], gpu=False) 
