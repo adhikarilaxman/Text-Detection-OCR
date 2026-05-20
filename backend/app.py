@@ -57,6 +57,15 @@ def create_app():
     # Allow cross-origin requests
     CORS(app)
     
+    # Root endpoint for verification
+    @app.route('/')
+    def index():
+        return {
+            'status': 'online',
+            'service': 'Text Detection & OCR API',
+            'health_check': '/api/health'
+        }, 200
+
     # Register blueprints (all our OCR and health endpoints are prefixed under /api)
     app.register_blueprint(api, url_prefix='/api')
     
