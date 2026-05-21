@@ -177,6 +177,17 @@ def _encode_image_to_base64(image_path: str) -> str:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 
+def _get_image_mime_type(image_path: str) -> str:
+    """Return the correct MIME type based on file extension."""
+    ext = os.path.splitext(image_path)[1].lower()
+    return {
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+    }.get(ext, 'image/jpeg')
+
+
 def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
     """
     Extract text from handwritten images using OpenAI GPT-4o Vision.
@@ -210,6 +221,7 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
     try:
         # Encode image to base64
         base64_image = _encode_image_to_base64(image_path)
+        mime_type = _get_image_mime_type(image_path)
 
         system_msg = (
             "You are an expert OCR system specialized in reading handwritten text. "
@@ -237,7 +249,7 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
+                                "url": f"data:{mime_type};base64,{base64_image}"
                             }
                         }
                     ]
@@ -301,6 +313,7 @@ def extract_medical_prescription_with_openai(image_path: str) -> Optional[dict]:
     try:
         # Encode image to base64
         base64_image = _encode_image_to_base64(image_path)
+        mime_type = _get_image_mime_type(image_path)
 
         system_msg = (
             "You are a medical prescription expert. Extract structured data from prescription images. "
@@ -338,7 +351,7 @@ def extract_medical_prescription_with_openai(image_path: str) -> Optional[dict]:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
+                                "url": f"data:{mime_type};base64,{base64_image}"
                             }
                         }
                     ]

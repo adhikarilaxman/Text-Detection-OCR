@@ -232,74 +232,69 @@ def ocr_endpoint():
 def handwritten_ocr_endpoint():
     """
     Dedicated endpoint for handwritten OCR.
-    Applies custom preprocessing and uses EasyOCR from a separate module.
+    Delegates to the proven AI vision path (same as /ocr/bytez/handwritten).
+    Falls back to local EasyOCR if AI is unavailable.
     """
     try:
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided in the request.'}), 400
-            
+
         file = request.files['image']
         if file.filename == '' or not allowed_file(file.filename):
             return jsonify({'error': 'A valid image file must be selected.'}), 400
 
         image_bytes = file.read()
         if not image_bytes or len(image_bytes) < 100:
-            logger.warning("Rejected upload: file is empty or too small")
             return jsonify({'error': 'File is too small or empty.'}), 400
 
-        image = decode_image(image_bytes)
-        if image is None:
-            logger.warning("Failed to decode the provided image.")
-            return jsonify({'error': 'Could not decode image.'}), 400
-
-        # Prefer AI-based handwritten OCR if an API key is configured, otherwise use local EasyOCR
         logger.info(f"Processing handwritten image upload: {file.filename}")
 
-        # Re-read env at request time so Render/production env vars are picked up
-        # even if they weren't present when the module was first imported.
-        api_key = os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY')
-        if api_key:
-            # Save to temp file and call AI vision extractor
-            temp_path = _save_bytes_to_temp(image_bytes, file.filename)
-            try:
-                logger.info("Attempting AI-based handwritten extraction via OpenAI/OpenRouter")
-                ai_result = extract_handwritten_text_with_openai(temp_path)
-                if ai_result and ai_result.get('text'):
-                    raw_text = ai_result.get('text', '')
-                    # Try to correct using the AI correction flow
-                    corrected = None
-                    try:
-                        corrected = correct_handwritten_text(raw_text)
-                    except Exception:
-                        corrected = None
+        # Save to temp file for AI vision processing
+        temp_path = _save_bytes_to_temp(image_bytes, file.filename)
+        try:
+            logger.info(f"Attempting AI-based handwritten extraction for: {file.filename}")
+            ai_result = extract_handwritten_text_with_openai(temp_path)
 
-                    corrected_text = corrected.get('corrected_text') if corrected and isinstance(corrected, dict) else raw_text
-
-                    return jsonify({
-                        'success': True,
-                        'text': corrected_text,
-                        'full_text': corrected_text,
-                        'raw_text': raw_text,
-                        'confidence': ai_result.get('confidence', 0.85),
-                        'results': [],
-                        'processed_image': None,
-                        'heatmap_image': None,
-                        'total_regions': 0,
-                        'image_type': 'handwritten',
-                        'preprocessing_steps': ['ai_vision'],
-                        'mode_used': 'ai-handwritten-ocr',
-                        'ocr_engine': 'openai_vision',
-                        'template': {}
-                    }), 200
-
-                logger.info("AI handwritten extraction returned no result; falling back to local EasyOCR")
-            finally:
+            if ai_result and ai_result.get('text'):
+                raw_text = ai_result.get('text', '')
+                corrected = None
                 try:
-                    os.remove(temp_path)
+                    corrected = correct_handwritten_text(raw_text)
                 except Exception:
-                    logger.warning("Could not remove temporary upload: %s", temp_path)
+                    pass
+                corrected_text = (
+                    corrected.get('corrected_text')
+                    if corrected and isinstance(corrected, dict)
+                    else raw_text
+                )
+                return jsonify({
+                    'success': True,
+                    'text': corrected_text,
+                    'full_text': corrected_text,
+                    'raw_text': raw_text,
+                    'confidence': ai_result.get('confidence', 0.85),
+                    'results': [],
+                    'processed_image': None,
+                    'heatmap_image': None,
+                    'total_regions': 0,
+                    'image_type': 'handwritten',
+                    'preprocessing_steps': ['ai_vision'],
+                    'mode_used': 'ai-handwritten-ocr',
+                    'ocr_engine': 'openai_vision',
+                    'template': {}
+                }), 200
 
-        # Local fallback using EasyOCR
+            logger.warning("AI handwritten extraction returned no result; trying local EasyOCR fallback")
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+        # Local EasyOCR fallback
+        image = decode_image(image_bytes)
+        if image is None:
+            return jsonify({'error': 'Could not decode image.'}), 400
         try:
             response_data = _build_local_handwritten_response(
                 image,
@@ -307,15 +302,15 @@ def handwritten_ocr_endpoint():
                 mode_used='handwritten-ocr-endpoint-local'
             )
             return jsonify(response_data), 200
-        except ImportError as ie:
-            logger.error("EasyOCR not available and no AI API key configured: %s", ie)
+        except ImportError:
+            logger.error("EasyOCR not available and AI extraction also failed.")
             return jsonify({
-                'error': 'Handwritten OCR requires either an AI API key (OPENAI_API_KEY) or EasyOCR to be installed on the server.'
+                'error': 'Handwritten OCR failed. Check that OPENAI_API_KEY is set correctly in backend/.env and the server was restarted.'
             }), 503
 
     except Exception as e:
         logger.exception("Handwritten OCR endpoint error: %s", e)
-        return jsonify({'error': 'Failed to process handwritten image due to an internal error.'}), 500
+        return jsonify({'error': f'Failed to process handwritten image: {str(e)}'}), 500
 
 @api.route('/prescription-ocr', methods=['POST'])
 def prescription_ocr_endpoint():
