@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: ocr-backend
+    name: text-detection-ocr
     env: python
+    rootDir: backend
     buildCommand: |
-      apt-get update && apt-get install -y tesseract-ocr
-      pip install -r backend/requirements.txt
-      cd frontend && npm install && npm run build && cd ..
-    startCommand: cd backend && gunicorn app:app
+      apt-get update && apt-get install -y tesseract-ocr libgl1
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.0
+      - key: PYTHONUNBUFFERED
+        value: "1"
