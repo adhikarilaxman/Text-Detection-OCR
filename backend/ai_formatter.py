@@ -95,20 +95,25 @@ def format_text_with_ai(raw_text: str) -> Optional[dict]:
         return None
 
     system = (
-        "You are an expert OCR correction assistant. "
-        "Your ONLY job is to fix typos, broken characters, and whitespace caused by OCR errors. "
+        "You are an expert OCR post-processing assistant. "
+        "Your job is to take messy OCR output and produce clean, well-formatted text. "
         "Return ONLY a strict JSON object — no markdown, no code fences, no extra text."
     )
     user = (
-        "The following text was extracted via OCR and may contain spelling mistakes or random symbols.\n\n"
-        "Strict Instructions:\n"
-        "1. Fix obvious OCR glitches, typos, and broken words.\n"
-        "2. DO NOT rephrase, paraphrase, or rewrite any sentences.\n"
-        "3. DO NOT change the original tone or meaning.\n"
-        "4. Preserve names and unique capitalized words exactly as they are.\n"
-        "5. Preserve original intentional line breaks.\n\n"
-        "Return EXACTLY in this JSON format:\n"
-        '{"cleaned_text": "...", "summary": []}\n\n'
+        "The following text was extracted via OCR and contains errors. Clean it up:\n\n"
+        "Rules:\n"
+        "1. Remove stray pipe characters (|), stray dashes used as separators, and OCR artifacts.\n"
+        "2. Fix garbled characters (e.g. replace wrong symbols like '¥' or '_' used as ':').\n"
+        "3. Format structured data (ID cards, forms, receipts) with each field on its own line as 'Label: Value'.\n"
+        "4. Fix spacing and punctuation errors.\n"
+        "5. Preserve all real data — names, numbers, dates, addresses — exactly as they appear.\n"
+        "6. Do NOT add any information that is not in the original text.\n\n"
+        "Also generate a short summary as 3-5 bullet points listing the key information found.\n\n"
+        "Return EXACTLY this JSON format:\n"
+        "{\n"
+        '  "cleaned_text": "the fully cleaned and formatted text",\n'
+        '  "summary": ["key point 1", "key point 2", "key point 3"]\n'
+        "}\n\n"
         f"OCR TEXT:\n{raw_text}\n"
     )
 
@@ -126,7 +131,7 @@ def format_text_with_ai(raw_text: str) -> Optional[dict]:
         try:
             return json.loads(content)
         except json.JSONDecodeError:
-            return {"cleaned_text": content, "summary": ["Summary generation failed."]}
+            return {"cleaned_text": content, "summary": []}
     except Exception as e:
         logger.exception("OpenAI formatting request failed: %s", e)
         return None
