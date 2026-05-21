@@ -22,7 +22,10 @@ def get_reader():
         logger.info("Initializing EasyOCR reader (CPU mode)...")
         # Use CPU for better compatibility
         reader = easyocr.Reader(['en'], gpu=False) 
-    return readerdef preprocess_for_handwritten(image):
+    return reader
+
+
+def preprocess_for_handwritten(image):
     """
     Apply OpenCV preprocessing: grayscale, noise removal, and adaptive thresholding
     to enhance handwritten text for extraction.
