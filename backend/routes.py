@@ -255,7 +255,10 @@ def handwritten_ocr_endpoint():
         # Prefer AI-based handwritten OCR if an API key is configured, otherwise use local EasyOCR
         logger.info(f"Processing handwritten image upload: {file.filename}")
 
-        if os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY'):
+        # Re-read env at request time so Render/production env vars are picked up
+        # even if they weren't present when the module was first imported.
+        api_key = os.getenv('OPENROUTER_API_KEY') or os.getenv('OPENAI_API_KEY')
+        if api_key:
             # Save to temp file and call AI vision extractor
             temp_path = _save_bytes_to_temp(image_bytes, file.filename)
             try:
@@ -297,12 +300,18 @@ def handwritten_ocr_endpoint():
                     logger.warning("Could not remove temporary upload: %s", temp_path)
 
         # Local fallback using EasyOCR
-        response_data = _build_local_handwritten_response(
-            image,
-            image_type='handwritten',
-            mode_used='handwritten-ocr-endpoint-local'
-        )
-        return jsonify(response_data), 200
+        try:
+            response_data = _build_local_handwritten_response(
+                image,
+                image_type='handwritten',
+                mode_used='handwritten-ocr-endpoint-local'
+            )
+            return jsonify(response_data), 200
+        except ImportError as ie:
+            logger.error("EasyOCR not available and no AI API key configured: %s", ie)
+            return jsonify({
+                'error': 'Handwritten OCR requires either an AI API key (OPENAI_API_KEY) or EasyOCR to be installed on the server.'
+            }), 503
 
     except Exception as e:
         logger.exception("Handwritten OCR endpoint error: %s", e)

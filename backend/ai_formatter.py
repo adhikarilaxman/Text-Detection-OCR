@@ -188,7 +188,19 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
     Returns:
         Dictionary with extracted text and metadata, or None on failure.
     """
-    if not client:
+    # Re-read key at call time so production env vars (e.g. Render) are always picked up
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+    active_client = client
+    if not active_client and api_key:
+        try:
+            if str(api_key).startswith("sk-or-"):
+                active_client = openai.OpenAI(base_url=_OPENROUTER_BASE, api_key=api_key)
+            else:
+                active_client = openai.OpenAI(api_key=api_key)
+        except Exception as e:
+            logger.exception("Failed to create OpenAI client on-demand: %s", e)
+
+    if not active_client:
         logger.warning("OpenAI client not configured for handwritten text extraction.")
         return None
         
@@ -211,29 +223,7 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
             '}'
         )
 
-        response = client.chat.completions.create(
-            model=_VISION_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_msg
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Extract all text from this image."},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            temperature=0.0,
-            max_tokens=1200
-        )
+        response = active_client.chat.completions.create(
 
         content = response.choices[0].message.content.strip()
 
