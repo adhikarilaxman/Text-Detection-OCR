@@ -224,6 +224,28 @@ def extract_handwritten_text_with_openai(image_path: str) -> Optional[dict]:
         )
 
         response = active_client.chat.completions.create(
+            model=_VISION_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_msg
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Extract all text from this image."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature=0.0,
+            max_tokens=1200
+        )
 
         content = response.choices[0].message.content.strip()
 
