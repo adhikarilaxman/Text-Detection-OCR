@@ -128,42 +128,56 @@ def set_api_key():
 @api.route('/ocr', methods=['POST'])
 def ocr_endpoint():
     """
-    Main OCR endpoint. Accepts an image upload, processes it with adaptive preprocessing,
-    and returns text with enhanced support for blurry and handwritten images.
-    
-    Query Parameters:
-        - mode: 'auto' (default), 'blur', 'handwritten', or 'normal'
-        - use_handwriting_config: true/false to use handwriting-optimized Tesseract config
-        - use_advanced_handwriting: true/false to use the complete advanced handwritten OCR pipeline
+    Main OCR endpoint. Uses Tesseract when available, falls back to AI Vision otherwise.
     """
     try:
-        if not is_tesseract_available():
-            logger.error("OCR requested but Tesseract is not available")
-            return jsonify({
-                'error': 'Tesseract OCR is not installed or not found. Please verify the installation path.'
-            }), 503
-
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided in the request.'}), 400
-            
+
         file = request.files['image']
         if file.filename == '' or not allowed_file(file.filename):
             return jsonify({'error': 'A valid image file must be selected.'}), 400
 
         image_bytes = file.read()
         if not image_bytes or len(image_bytes) < 100:
-            logger.warning("Rejected upload: file is empty or too small")
             return jsonify({'error': 'File is too small or empty. Please upload a valid image.'}), 400
 
         logger.info(f"Processing image upload: {file.filename}")
-        
-        # Decode the image
+
+        # ── Tesseract unavailable → fall back to AI Vision ──────────────────
+        if not is_tesseract_available():
+            logger.warning("Tesseract not available, falling back to AI Vision for standard OCR")
+            temp_path = _save_bytes_to_temp(image_bytes, file.filename)
+            try:
+                ai_result = extract_handwritten_text_with_openai(temp_path)
+                if ai_result and ai_result.get('text'):
+                    raw_text = ai_result.get('text', '')
+                    return jsonify({
+                        'success': True,
+                        'text': raw_text,
+                        'full_text': raw_text,
+                        'raw_text': raw_text,
+                        'confidence': ai_result.get('confidence', 0.85),
+                        'results': [],
+                        'processed_image': None,
+                        'heatmap_image': None,
+                        'total_regions': 0,
+                        'image_type': 'normal',
+                        'preprocessing_steps': ['ai_vision_fallback'],
+                        'mode_used': 'ai-vision-fallback',
+                        'ocr_engine': 'openai_vision',
+                        'template': {}
+                    }), 200
+                return jsonify({'error': 'Tesseract is not installed on this server and AI Vision fallback also failed.'}), 503
+            finally:
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
         image = decode_image(image_bytes)
         if image is None:
-            logger.warning("Failed to decode the provided image.")
-            return jsonify({
-                'error': 'Could not decode image. Please use a supported format (PNG, JPG, JPEG) and ensure it is not corrupted.'
-            }), 400
+            return jsonify({'error': 'Could not decode image. Please use a supported format (PNG, JPG, JPEG).'}), 400
 
         h, w = image.shape[:2]
         if h < MIN_IMAGE_DIMENSION or w < MIN_IMAGE_DIMENSION:
