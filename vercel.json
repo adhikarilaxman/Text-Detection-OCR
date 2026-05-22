@@ -2,15 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/vercel_app.py",
-      "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.9",
-        "maxLambdaSize": "50mb",
-        "maxDuration": 60
-      }
-    },
-    {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -20,12 +11,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/backend/vercel_app.py"
-    },
-    {
       "src": "/(.*)",
       "dest": "/frontend/$1"
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://text-detection-ocr.onrender.com/api"
+  }
 }
