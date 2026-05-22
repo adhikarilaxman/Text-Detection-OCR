@@ -27,6 +27,13 @@ def setup_tesseract_path():
                 return True
         logger.warning("Tesseract not found in standard Windows paths")
         return False
+    # Linux/Docker: tesseract is in /usr/bin/tesseract
+    linux_paths = ['/usr/bin/tesseract', '/usr/local/bin/tesseract']
+    for path in linux_paths:
+        if os.path.exists(path):
+            pytesseract.pytesseract.tesseract_cmd = path
+            logger.info("Tesseract configured: %s", path)
+            return True
     return True
 
 # Initialize on module load
