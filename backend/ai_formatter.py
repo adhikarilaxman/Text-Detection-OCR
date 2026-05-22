@@ -6,49 +6,48 @@ from typing import Optional
 import openai
 from dotenv import load_dotenv
 
-# Load environment variables from .env file (works whether run from backend/ or project root)
+# Load .env file for local development (no-op on Render where env vars come from dashboard)
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 logger = logging.getLogger(__name__)
 
-# ── OpenAI client (via OpenRouter) ─────────────────────────────────────────────
-_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
 _OPENROUTER_BASE = os.getenv("OPENROUTER_BASE", "https://openrouter.ai/api/v1")
-_TEXT_MODEL   = "openai/gpt-4o-mini"        # For text correction
-_VISION_MODEL = "google/gemini-2.5-flash"   # For image OCR - vision capable
+_TEXT_MODEL   = "openai/gpt-4o-mini"
+_VISION_MODEL = "google/gemini-2.5-flash"
 
-if _OPENAI_API_KEY:
-    try:
-        if os.getenv("OPENROUTER_API_KEY") or str(_OPENAI_API_KEY).startswith("sk-or-"):
-            logger.info("Configuring OpenAI client to use OpenRouter at %s", _OPENROUTER_BASE)
-            client = openai.OpenAI(base_url=_OPENROUTER_BASE, api_key=_OPENAI_API_KEY)
-        else:
-            logger.info("Configuring OpenAI client to use official OpenAI endpoint")
-            client = openai.OpenAI(api_key=_OPENAI_API_KEY)
-    except Exception as e:
-        logger.exception("Failed to initialize OpenAI/OpenRouter client: %s", e)
-        client = None
-else:
-    logger.warning("OpenAI API key not configured. Set OPENAI_API_KEY or OPENROUTER_API_KEY.")
-    client = None
+# Keep a cached client but ONLY if the key was available at import time.
+# _get_active_client() always re-reads the env var so Render dashboard keys work.
+_cached_client = None
+_cached_key = None
 
 
 def _get_active_client():
-    """Return the module-level client, or build one on-demand from env vars.
-    This ensures production env vars (e.g. Render) are always picked up even
-    if they weren't set when the module was first imported."""
-    if client:
-        return client
+    """Always returns a fresh client using the current OPENAI_API_KEY env var.
+    Caches the client per key value so we don't recreate it on every call."""
+    global _cached_client, _cached_key
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
+        logger.warning("OPENAI_API_KEY / OPENROUTER_API_KEY not set in environment.")
         return None
+    # Return cached client if the key hasn't changed
+    if _cached_client is not None and api_key == _cached_key:
+        return _cached_client
+    # Build a new client
     try:
         if str(api_key).startswith("sk-or-"):
-            return openai.OpenAI(base_url=_OPENROUTER_BASE, api_key=api_key)
-        return openai.OpenAI(api_key=api_key)
+            _cached_client = openai.OpenAI(base_url=_OPENROUTER_BASE, api_key=api_key)
+        else:
+            _cached_client = openai.OpenAI(api_key=api_key)
+        _cached_key = api_key
+        logger.info("OpenAI client initialised (key prefix: %s...)", api_key[:12])
+        return _cached_client
     except Exception as e:
-        logger.exception("Failed to create OpenAI client on-demand: %s", e)
+        logger.exception("Failed to create OpenAI client: %s", e)
         return None
+
+
+# Legacy alias kept for any code that references `client` directly
+client = _get_active_client()
 
 
 def _get_image_mime_type(image_path: str) -> str:

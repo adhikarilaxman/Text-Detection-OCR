@@ -387,8 +387,10 @@ def set_api_key():
         if not key:
             return {'error': 'No API key provided.'}, 400
         os.environ['OPENAI_API_KEY'] = key
-        import importlib, ai_formatter as _af
-        importlib.reload(_af)
+        # Reset the cached client so _get_active_client() picks up the new key
+        import ai_formatter as _af
+        _af._cached_client = None
+        _af._cached_key = None
         return {'success': True, 'message': 'API key updated.'}, 200
     except Exception as e:
         logger.exception('set_api_key error: %s', e)
