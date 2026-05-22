@@ -10,132 +10,143 @@ const client = axios.create({
 });
 
 /**
+ * Wake up the Render backend if it's sleeping (free tier spins down after inactivity).
+ * Pings /api/health up to maxAttempts times with a delay between each.
+ * Resolves when the backend responds, or rejects after all attempts fail.
+ */
+async function wakeUpBackend(maxAttempts = 8, delayMs = 4000) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            await client.get('/health', { timeout: 8000 });
+            return; // backend is awake
+        } catch {
+            if (i < maxAttempts - 1) {
+                await new Promise((r) => setTimeout(r, delayMs));
+            }
+        }
+    }
+    throw new Error(
+        'The backend server is taking too long to start. ' +
+        'It may be waking up from sleep — please wait 30 seconds and try again.'
+    );
+}
+
+/**
+ * Wrap any API call with automatic backend wake-up on network error.
+ * If the first attempt fails with ERR_NETWORK, waits for the backend to wake up then retries.
+ */
+async function withWakeUp(apiFn) {
+    try {
+        return await apiFn();
+    } catch (err) {
+        if (err.code === 'ERR_NETWORK' || !err.response) {
+            // Backend might be sleeping — try to wake it up then retry once
+            await wakeUpBackend();
+            return await apiFn();
+        }
+        throw err;
+    }
+}
+
+/**
  * POST /api/ocr - send image for OCR processing.
- * @param {File} file - image file
- * @returns {{ success, text, full_text, confidence, results, processed_image, total_regions }}
  */
 export async function performOCR(file) {
     const formData = new FormData();
     formData.append('image', file);
 
-    try {
-        const res = await client.post('/ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-
-        if (res.data && res.data.success === false) {
-            throw new Error(res.data.error || 'OCR processing failed');
+    return withWakeUp(async () => {
+        try {
+            const res = await client.post('/ocr', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            if (res.data && res.data.success === false) {
+                throw new Error(res.data.error || 'OCR processing failed');
+            }
+            return res.data;
+        } catch (err) {
+            if (err.response?.data?.error) throw new Error(err.response.data.error);
+            if (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
+                throw new Error('Request timed out. Please try again.');
+            if (err.code === 'ERR_NETWORK' || !err.response)
+                throw new Error('Cannot reach the server. The backend may still be waking up — please try again in a moment.');
+            throw new Error(err.message || 'Failed to process image');
         }
-
-        return res.data;
-    } catch (err) {
-        if (err.response?.data?.error) {
-            throw new Error(err.response.data.error);
-        }
-        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-            throw new Error('Request timed out. Please try again.');
-        }
-        if (err.code === 'ERR_NETWORK' || !err.response) {
-            throw new Error('Cannot reach the server. Is the backend running?');
-        }
-        throw new Error(err.message || 'Failed to process image');
-    }
+    });
 }
 
 /**
- * POST /api/handwritten-ocr - send image for handwritten OCR processing explicitly.
- * @param {File} file - image file
- * @returns {{ success, text, full_text, confidence, results, processed_image, total_regions }}
+ * POST /api/handwritten-ocr - send image for handwritten OCR processing.
  */
 export async function performHandwrittenOCR(file) {
     const formData = new FormData();
     formData.append('image', file);
 
-    try {
-        const res = await client.post('/handwritten-ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-
-        if (res.data && res.data.success === false) {
-            throw new Error(res.data.error || 'Handwritten OCR processing failed');
+    return withWakeUp(async () => {
+        try {
+            const res = await client.post('/handwritten-ocr', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 180000,
+            });
+            if (res.data && res.data.success === false) {
+                throw new Error(res.data.error || 'Handwritten OCR processing failed');
+            }
+            return res.data;
+        } catch (err) {
+            if (err.response?.data?.error) throw new Error(err.response.data.error);
+            if (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
+                throw new Error('Request timed out. Please try again.');
+            if (err.code === 'ERR_NETWORK' || !err.response)
+                throw new Error('Cannot reach the server. The backend may still be waking up — please try again in a moment.');
+            throw new Error(err.message || 'Failed to process image for handwritten text');
         }
-
-        return res.data;
-    } catch (err) {
-        if (err.response?.data?.error) {
-            throw new Error(err.response.data.error);
-        }
-        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-            throw new Error('Request timed out. Please try again.');
-        }
-        if (err.code === 'ERR_NETWORK' || !err.response) {
-            throw new Error('Cannot reach the server. Is the backend running?');
-        }
-        throw new Error(err.message || 'Failed to process image for handwritten text');
-    }
+    });
 }
 
 /**
- * POST /api/prescription-ocr - send image for medical prescription OCR processing explicitly.
- * @param {File} file - image file
- * @returns {{ success, text, full_text, confidence, results, processed_image, total_regions }}
+ * POST /api/prescription-ocr - send image for medical prescription OCR processing.
  */
 export async function performPrescriptionOCR(file) {
     const formData = new FormData();
     formData.append('image', file);
 
-    try {
-        const res = await client.post('/prescription-ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 180000, // Longer timeout for AI processing
-        });
-
-        if (res.data && res.data.success === false) {
-            throw new Error(res.data.error || 'Prescription OCR processing failed');
+    return withWakeUp(async () => {
+        try {
+            const res = await client.post('/prescription-ocr', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 180000,
+            });
+            if (res.data && res.data.success === false) {
+                throw new Error(res.data.error || 'Prescription OCR processing failed');
+            }
+            return res.data;
+        } catch (err) {
+            if (err.response?.data?.error) throw new Error(err.response.data.error);
+            if (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
+                throw new Error('Request timed out. Please try again.');
+            if (err.code === 'ERR_NETWORK' || !err.response)
+                throw new Error('Cannot reach the server. The backend may still be waking up — please try again in a moment.');
+            throw new Error(err.message || 'Failed to process image for medical prescription');
         }
-
-        return res.data;
-    } catch (err) {
-        if (err.response?.data?.error) {
-            throw new Error(err.response.data.error);
-        }
-        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-            throw new Error('Request timed out. Please try again.');
-        }
-        if (err.code === 'ERR_NETWORK' || !err.response) {
-            throw new Error('Cannot reach the server. Is the backend running?');
-        }
-        throw new Error(err.message || 'Failed to process image for medical prescription');
-    }
+    });
 }
 
 /**
  * POST /api/clean-text - send raw OCR text to be cleaned and summarized by AI.
- * @param {string} text - raw OCR text
- * @returns {{ cleaned_text: string, summary: string[] }}
- * @throws Error if AI is unavailable or request fails
  */
 export async function cleanTextWithAI(text) {
     try {
         const res = await client.post('/clean-text', { text });
-
-        // Surface backend errors to the caller
-        if (res.data && res.data.error) {
-            throw new Error(res.data.error);
-        }
-
+        if (res.data && res.data.error) throw new Error(res.data.error);
         return {
             cleaned_text: res.data.cleaned_text || '',
             summary: Array.isArray(res.data.summary) ? res.data.summary : [],
         };
     } catch (err) {
-        // Backend returned a 4xx/5xx
         const backendMsg = err.response?.data?.error;
         if (backendMsg) throw new Error(backendMsg);
-
-        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
             throw new Error('AI request timed out. Please try again.');
-        }
         throw new Error(err.message || 'Failed to clean text with AI');
     }
 }
@@ -157,9 +168,6 @@ export async function checkHealth() {
 
 /**
  * POST /api/correction - submit a user correction for the learning system.
- * @param {string} original - The incorrect OCR text
- * @param {string} corrected - The user's correction
- * @returns {{ success, message, total_corrections }}
  */
 export async function submitCorrection(original, corrected) {
     try {
@@ -185,8 +193,6 @@ export async function getCorrectionStats() {
 
 /**
  * POST /api/template - extract structured fields from text.
- * @param {string} text - Raw OCR text
- * @returns {{ document_type, type_confidence, fields, field_count }}
  */
 export async function extractTemplate(text) {
     try {
@@ -199,34 +205,11 @@ export async function extractTemplate(text) {
 }
 
 /**
- * POST /api/ocr/handwritten - extract handwritten text (uses local EasyOCR).
- * @param {File} file - image file with handwritten text
- * @returns {{ text, raw_text, confidence, corrections_applied }}
- */
-export async function extractHandwritten(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-        const res = await client.post('/handwritten-ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return res.data;
-    } catch (err) {
-        const msg = err.response?.data?.error || err.message || 'Handwritten extraction failed';
-        throw new Error(msg);
-    }
-}
-
-/**
  * POST /api/ocr/bytez/handwritten - extract handwritten text using AI Vision.
- * @param {File} file - image file with handwritten text
- * @returns {{ text, raw_text, confidence, corrections_applied }}
  */
 export async function extractHandwrittenBytez(file) {
     const formData = new FormData();
     formData.append('image', file);
-
     try {
         const res = await client.post('/ocr/bytez/handwritten', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -239,34 +222,11 @@ export async function extractHandwrittenBytez(file) {
 }
 
 /**
- * POST /api/prescription-ocr - extract medical prescription data (uses local EasyOCR + AI).
- * @param {File} file - prescription image file
- * @returns {{ structured, doctor_name, patient_name, medications[], instructions, etc. }}
- */
-export async function extractPrescription(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-        const res = await client.post('/prescription-ocr', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return res.data;
-    } catch (err) {
-        const msg = err.response?.data?.error || err.message || 'Prescription extraction failed';
-        throw new Error(msg);
-    }
-}
-
-/**
- * POST /api/ocr/bytez/prescription - extract medical prescription data using Bytez API.
- * @param {File} file - prescription image file
- * @returns {{ structured, doctor_name, patient_name, medications[], instructions, etc. }}
+ * POST /api/ocr/bytez/prescription - extract medical prescription data using AI Vision.
  */
 export async function extractPrescriptionBytez(file) {
     const formData = new FormData();
     formData.append('image', file);
-
     try {
         const res = await client.post('/ocr/bytez/prescription', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },

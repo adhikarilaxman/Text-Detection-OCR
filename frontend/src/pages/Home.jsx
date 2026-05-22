@@ -38,6 +38,8 @@ export default function Home({ addToast }) {
         }
 
         setIsProcessing(true);
+        // Warn user that the backend may be waking up on first request
+        addToast('Processing... If this is the first request, the server may take ~30s to wake up.', 'info');
         try {
             let data;
             if (ocrMode === 'prescription') {
