@@ -1,4 +1,4 @@
-# Text Detection OCR 
+# Text Detection OCR  
 
 Text Detection OCR is a full-stack web application for extracting text from images. It supports standard printed documents, handwritten text, and medical prescription style documents through a React frontend and a Flask-based OCR backend.
 
