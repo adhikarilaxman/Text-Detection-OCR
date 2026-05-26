@@ -26,35 +26,60 @@ export default function Header({ isDark, onToggleTheme }) {
                 }}
             >
                 {/* Logo / App Name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 38,
-                            height: 38,
-                            borderRadius: 11,
-                            background: 'linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-accent)))',
-                            color: '#fff',
-                        }}
-                    >
-                        <FileText size={20} />
+                <motion.div
+                    whileHover="hover"
+                    onClick={() => window.location.reload()}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}
+                >
+                    <div style={{ position: 'relative', width: 38, height: 38 }}>
+                        <motion.div
+                            animate={{
+                                y: [0, -3, 0],
+                            }}
+                            transition={{
+                                repeat: Infinity,
+                                duration: 3,
+                                ease: "easeInOut"
+                            }}
+                            style={{ width: '100%', height: '100%' }}
+                        >
+                            <motion.div
+                                variants={{
+                                    hover: {
+                                        scale: 1.12,
+                                        rotate: [0, -10, 15, -10, 5, 0],
+                                        boxShadow: '0 6px 14px rgba(var(--color-primary), 0.35)',
+                                    }
+                                }}
+                                transition={{ duration: 0.5, ease: "easeInOut" }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 11,
+                                    background: 'linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-accent)))',
+                                    color: '#fff',
+                                    boxShadow: '0 4px 8px rgba(var(--color-primary), 0.15)',
+                                }}
+                            >
+                                <FileText size={20} />
+                            </motion.div>
+                        </motion.div>
                     </div>
-                    <span
-                        style={{
-                            fontWeight: 800,
-                            fontSize: '1.15rem',
-                            letterSpacing: '0',
-                            background: 'linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-accent)))',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
+                    <motion.span
+                        variants={{
+                            hover: {
+                                scale: 1.03,
+                                transition: { duration: 0.3, type: "spring", stiffness: 300, damping: 15 }
+                            }
                         }}
+                        className="animated-logo-text"
                     >
                         Text Detection OCR
-                    </span>
-                </div>
+                    </motion.span>
+                </motion.div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <motion.a
