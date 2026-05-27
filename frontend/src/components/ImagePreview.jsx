@@ -82,36 +82,43 @@ export default function ImagePreview({ src, isProcessing, onClear, heatmapSrc })
 
                 {/* Processing overlay */}
                 {isProcessing && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 12,
-                            background: 'rgba(var(--color-surface), .7)',
-                            backdropFilter: 'blur(4px)',
-                            borderRadius: 'var(--radius-sm)',
-                        }}
-                    >
-                        <Loader2
-                            size={32}
-                            style={{ color: 'rgb(var(--color-primary))', animation: 'spin .8s linear infinite' }}
-                        />
-                        <span
+                    <>
+                        <div className="scanner-line" />
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
                             style={{
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                color: 'rgb(var(--color-primary))',
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 12,
+                                background: 'rgba(var(--color-surface), .3)',
+                                backdropFilter: 'blur(1px)',
+                                borderRadius: 'var(--radius-sm)',
                             }}
                         >
-                            Processing...
-                        </span>
-                    </motion.div>
+                            <span
+                                style={{
+                                    fontSize: '0.875rem',
+                                    fontWeight: 700,
+                                    color: '#fff',
+                                    background: 'linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-accent)))',
+                                    padding: '8px 18px',
+                                    borderRadius: '99px',
+                                    boxShadow: '0 4px 14px rgba(var(--color-primary), 0.4)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                }}
+                            >
+                                <Loader2 size={16} className="spinner" />
+                                Analyzing Document
+                            </span>
+                        </motion.div>
+                    </>
                 )}
             </div>
         </motion.div>
